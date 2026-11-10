@@ -1,3 +1,4 @@
+
 # blehhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
 import pygame
 from sys import exit
@@ -23,8 +24,11 @@ pipe_height = 510
 obstacles = []
 bullets = []
 
+obstacle_x = GAME_WIDTH
 obstacle_width = 30
 obstacle_height = 30
+
+bullet_speed = 12
 
 
 class Bird(pygame.Rect):
@@ -43,10 +47,19 @@ class Pipe(pygame.Rect):
 # Game images
 background_image = pygame.image.load("assets/background.jpg")
 bird_image = pygame.image.load("assets/bird.png")
-obstacle_image = pygame.image.load(assets/obstacle.png)
-bullets_image = pygame.image.load(assets/bullets.png)
+obstacle_image = pygame.image.load("assets/obstacle.png")
+bullets_image = pygame.image.load("assets/bullets.png")
+
 bird_image = pygame.transform.scale(
     bird_image, (bird_width, bird_height)
+)
+
+obstacle_image = pygame.transform.scale(
+    obstacle_image, (obstacle_width, obstacle_height)
+)
+
+bullets_image = pygame.transform.scale(
+    bullets_image, (20, 10)
 )
 
 top_pipe_image = pygame.image.load("assets/toppipe.png")
@@ -75,6 +88,12 @@ def draw():
     window.blit(background_image, (0, 0))
     window.blit(bird.img, bird)
 
+    for obstacle in obstacles:
+        window.blit(obstacle_image, obstacle["rect"])
+
+    for bullet in bullets:
+        window.blit(bullets_image, bullet)
+
     for pipe in pipes:
         window.blit(pipe.img, pipe)
 
@@ -100,6 +119,42 @@ def move():
     if bird.y > GAME_HEIGHT:
         game_over = True
         return
+
+    # Move bullets
+    for bullet in bullets[:]:
+        bullet.x += bullet_speed
+
+        if bullet.x > GAME_WIDTH:
+            bullets.remove(bullet)
+
+    # Move obstacles
+    for obstacle in obstacles:
+        obstacle["rect"].x += velocity_x
+
+    # Remove obstacles that have moved off-screen
+    for obstacle in obstacles[:]:
+        if obstacle["rect"].right < 0:
+            obstacles.remove(obstacle)
+
+    # Bullet collision with obstacles
+    for bullet in bullets[:]:
+        for obstacle in obstacles[:]:
+
+            if bullet.colliderect(obstacle["rect"]):
+
+                obstacle["health"] -= 1
+                bullets.remove(bullet)
+
+                if obstacle["health"] <= 0:
+                    obstacles.remove(obstacle)
+
+                break
+
+    # Bird collision with obstacles
+    for obstacle in obstacles:
+        if bird.colliderect(obstacle["rect"]):
+            game_over = True
+            return
 
     for pipe in pipes:
         pipe.x += velocity_x
@@ -137,12 +192,29 @@ def create_pipes():
     )
     pipes.append(bottom_pipe)
 
+    # Create an obstacle in the gap between the pipes
+    obstacle_y = (
+        top_pipe.bottom + bottom_pipe.top
+    ) // 2 - obstacle_height // 2
+
+    obstacle_rect = pygame.Rect(
+        GAME_WIDTH + (pipe_width - obstacle_width) // 2,
+        obstacle_y,
+        obstacle_width,
+        obstacle_height
+    )
+
+    obstacles.append({
+        "rect": obstacle_rect,
+        "health": 3
+    })
+
 
 # Initialize Pygame
 pygame.init()
 
 window = pygame.display.set_mode((GAME_WIDTH, GAME_HEIGHT))
-pygame.display.set_caption("Flappy Bird")
+pygame.display.set_caption("Mappy Bird")
 
 clock = pygame.time.Clock()
 
@@ -165,6 +237,17 @@ while True:
 
         if event.type == pygame.KEYDOWN:
 
+            # Shoot bullets using C
+            if event.key == pygame.K_c and not game_over:
+                bullets.append(
+                    pygame.Rect(
+                        bird.right,
+                        bird.centery - 5,
+                        20,
+                        10
+                    )
+                )
+
             if event.key in (pygame.K_SPACE, pygame.K_x, pygame.K_UP):
 
                 if game_over:
@@ -173,6 +256,8 @@ while True:
                     bird.x = bird_x
 
                     pipes.clear()
+                    obstacles.clear()
+                    bullets.clear()
 
                     score = 0
                     velocity_y = 0
@@ -180,7 +265,7 @@ while True:
 
                 else:
                     velocity_y = -6
-
+            
     if not game_over:
         move()
 
